@@ -1,0 +1,385 @@
+---
+title: "Analyzing IBM Employee Attrition Using R"
+author: "Tammy Yu"
+date: "December 10, 2018"
+output: ioslides_presentation
+---
+#Introdcution 
+##This dataset was found from Kaggle: ##https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset, it contains information related to employee attrition. So we can find out key variables that have impact on an employee attrition and probably apply changed to reduce amount of emplyee leaving each year. This data set was created by IBM data scientists
+###Target variable: Attrition (2 levels, "Yes" or "No")
+##Input variables: 1470 observations with 36 variables
+##Missing value: 54 missing values 
+
+```{r setup, include=FALSE}
+employee = read.csv("C:/Users/student/Desktop/Senior/MATH 421 - R/Final/Employee Attrition.csv")
+employee$X = NULL
+employee$Over18 = NULL
+employee$EmployeeCount = NULL
+employee$StandardHours = NULL
+employee$EmployeeNumber = NULL
+employee$PercentSalaryHike = NULL
+employee$StockOptionLevel = NULL
+employee$DailyRate = NULL
+employee$MonthlyRate = NULL
+employee$Education = factor(employee$Education)
+employee$EnvironmentSatisfaction = factor(employee$EnvironmentSatisfaction)
+employee$JobInvolvement = factor(employee$JobInvolvement)
+employee$JobSatisfaction = factor(employee$JobSatisfaction)
+employee$PerformanceRating = factor(employee$PerformanceRating)
+employee$RelationshipSatisfaction = factor(employee$RelationshipSatisfaction)
+employee$WorkLifeBalance = factor(employee$WorkLifeBalance)
+levels(employee$Education) = c("Below College", "College", "Bachelor", "Master" , "Doctor")
+levels(employee$EnvironmentSatisfaction) = c("Low", "Medium", "High", "Very High")
+levels(employee$JobInvolvement) = c("Low", "Medium", "High", "Very High")
+levels(employee$JobSatisfaction) = c("Low", "Medium", "High", "Very High")
+levels(employee$PerformanceRating) = c("Excellent", "Outstanding")
+levels(employee$RelationshipSatisfaction) = c("Low", "Medium", "High", "Very High")
+levels(employee$WorkLifeBalance) = c("Bad", "Good", "Better", "Best")
+
+#54 missing value in the dataset
+
+#identify where the missing value is from
+for (i in 1:ncol(employee)){
+      print(c(names(employee)[i],sum(is.na(employee[i]))))
+}
+a = employee[!is.na(employee$TrainingTimesLastYear), ]
+library(caret)
+prepro = preProcess(employee, method = 'medianImpute')
+b = predict(prepro, newdata = employee)
+handlemiss = function(data)
+{
+  for (i in 1:ncol(data)){
+    if (class(data[, i]) != "factor") 
+    { 
+      data[,i][is.na(data[,i])]= mean(data[,i], na.rm = TRUE)   
+    } else {
+      levels=unique(data[,i])
+      data[,i][is.na(data[,i])]=levels[which.max(tabulate(match(data[,i], levels)))]
+    } 
+  }
+  return(data)
+}
+c = handlemiss(employee)
+
+set.seed(2018)
+splitIndex=createDataPartition(a$Attrition, p=.70, list=FALSE, times=1)
+train_a=a[splitIndex,]
+test_a=a[-splitIndex,]
+
+# Random Forest
+library(ranger)
+#run model on original dataset
+forest=ranger(Attrition~.,data=train_a)
+pred=predict(forest,data=test_a)$predictions
+cm=confusionMatrix(pred,test_a$Attrition,positive="Yes")
+Forest_a = cm$byClass['Balanced Accuracy']     
+
+# Decision Tree
+library(rpart)
+mytree <- rpart(Attrition ~ ., data = train_a, method = "class")
+pred <- predict(mytree,test_a, type = "class")
+cm=confusionMatrix(data = pred, reference = test_a$Attrition, positive = "Yes")
+Tree_a = cm$byClass['Balanced Accuracy']
+
+# glm
+library(glmnet)
+model <- train(Attrition ~. ,tuneLength = 1, train_a, method = "glm")
+pred = predict(model, test_a )
+cm =confusionMatrix(pred, test_a$Attrition, positive="Yes")
+glm_a = cm$byClass['Balanced Accuracy']
+
+# glmnet
+model <- train(Attrition ~. ,tuneLength = 1, train_a, method = "glmnet")
+pred = predict(model, test_a )
+cm =confusionMatrix(pred, test_a$Attrition, positive="Yes")
+glmnet_a = cm$byClass['Balanced Accuracy']
+
+
+#Use Data Set B
+
+# Split Data into 70% trianing, 30% testing, I first used data set "a"
+
+set.seed(2018)
+splitIndex=createDataPartition(b$Attrition, p=.70, list=FALSE, times=1)
+train_b=b[splitIndex,]
+test_b=b[-splitIndex,]
+
+#Random Forest
+library(ranger)
+#run model on original dataset
+forest=ranger(Attrition~.,data=train_b)
+pred=predict(forest,data=test_b)$predictions
+cm=confusionMatrix(pred,test_b$Attrition,positive="Yes")
+Forest_b = cm$byClass['Balanced Accuracy']
+
+#Decision Tree
+library(rpart)
+mytree <- rpart(Attrition ~ ., data = train_b, method = "class")
+pred <- predict(mytree,test_b, type = "class")
+cm=confusionMatrix(data = pred, reference = test_b$Attrition, positive = "Yes")
+Tree_b = cm$byClass['Balanced Accuracy']
+
+#glm
+library(glmnet)
+model <- train(Attrition ~. ,tuneLength = 1, train_b, method = "glm")
+pred = predict(model, test_b )
+cm =confusionMatrix(pred, test_b$Attrition, positive="Yes")
+glm_b = cm$byClass['Balanced Accuracy']
+
+
+#glmnet
+model <- train(Attrition ~. ,tuneLength = 1, train_b, method = "glmnet")
+pred = predict(model, test_b )
+cm =confusionMatrix(pred, test_b$Attrition, positive="Yes")
+glmnet_b = cm$byClass['Balanced Accuracy']
+
+
+#Use Data Set C
+
+#Split Data into 70% trianing, 30% testing, I first used data set "a"
+set.seed(2018)
+splitIndex=createDataPartition(c$Attrition, p=.70, list=FALSE, times=1)
+train_c=c[splitIndex,]
+test_c=c[-splitIndex,]
+
+#Random Forest
+library(ranger)
+#run model on original dataset
+forest=ranger(Attrition~.,data=train_c)
+pred=predict(forest,data=test_c)$predictions
+cm=confusionMatrix(pred,test_c$Attrition,positive="Yes")
+Forest_c = cm$byClass['Balanced Accuracy']
+
+#Decision Tree
+library(rpart)
+mytree <- rpart(Attrition ~ ., data = train_c, method = "class")
+pred <- predict(mytree,test_c, type = "class")
+cm=confusionMatrix(data = pred, reference = test_c$Attrition, positive = "Yes")
+Tree_c = cm$byClass['Balanced Accuracy']
+
+#glm
+library(glmnet)
+model <- train(Attrition ~. ,tuneLength = 1, train_c, method = "glm")
+pred = predict(model, test_c )
+cm =confusionMatrix(pred, test_c$Attrition, positive="Yes")
+glm_c = cm$byClass['Balanced Accuracy']
+
+#glmnet
+model <- train(Attrition ~. ,tuneLength = 1, train_c, method = "glmnet")
+pred = predict(model, test_c )
+cm =confusionMatrix(pred, test_c$Attrition, positive="Yes")
+glmnet_c = cm$byClass['Balanced Accuracy']
+
+#Resample Data, since this is a relativly small dataset, i decided to use over sampling method
+# dataset a:
+
+#train1 contians Yes for attrition
+train1=a[a$Attrition=="Yes",]
+n1=nrow(train1)
+
+#train2 contians No for attrition
+train0=a[a$Attrition=="No",]
+n0=nrow(train0)
+
+train11 = train1[sample(1:n1, n0, replace = TRUE), ]
+train_over_a = rbind(train11, train0)
+
+# dataset b: 
+
+#train1 contians Yes for attrition
+train1=b[b$Attrition=="Yes",]
+n1=nrow(train1)
+
+#train2 contians No for attrition
+train0=b[b$Attrition=="No",]
+n0=nrow(train0)
+
+train11 = train1[sample(1:n1, n0, replace = TRUE), ]
+train_over_b = rbind(train11, train0)
+
+# dataset c: 
+
+#train1 contians Yes for attrition
+train1=c[c$Attrition=="Yes",]
+n1=nrow(train1)
+
+#train2 contians No for attrition
+train0=c[c$Attrition=="No",]
+n0=nrow(train0)
+
+train11 = train1[sample(1:n1, n0, replace = TRUE), ]
+train_over_c = rbind(train11, train0)
+
+
+# reapply all the models on the resampled datasets a, b and c
+
+# data train_over_a
+
+#Random Forest
+library(ranger)
+#run model on original dataset
+forest=ranger(Attrition~.,data=train_over_a)
+pred=predict(forest,data=test_a)$predictions
+cm=confusionMatrix(pred,test_a$Attrition,positive="Yes")
+Forest_rea = cm$byClass['Balanced Accuracy']      
+
+#Decision Tree
+library(rpart)
+mytree <- rpart(Attrition ~ ., data = train_over_a, method = "class")
+pred <- predict(mytree,test_a, type = "class")
+cm=confusionMatrix(data = pred, reference = test_a$Attrition, positive = "Yes")
+Tree_rea = cm$byClass['Balanced Accuracy']
+
+#glm
+library(glmnet)
+model <- train(Attrition ~. ,tuneLength = 1, train_over_a, method = "glm")
+pred = predict(model, test_a )
+cm =confusionMatrix(pred, test_a$Attrition, positive="Yes")
+glm_rea = cm$byClass['Balanced Accuracy']
+
+
+#glmnet
+model <- train(Attrition ~. ,tuneLength = 1, train_over_a, method = "glmnet")
+pred = predict(model, test_a )
+cm =confusionMatrix(pred, test_a$Attrition, positive="Yes")
+glmnet_rea = cm$byClass['Balanced Accuracy']
+
+#Use Data Set train_over_b
+
+#Random Forest
+library(ranger)
+#run model on original dataset
+forest=ranger(Attrition~.,data=train_over_b)
+pred=predict(forest,data=test_b)$predictions
+cm=confusionMatrix(pred,test_b$Attrition,positive="Yes")
+Forest_reb = cm$byClass['Balanced Accuracy']
+
+
+#Decision Tree
+library(rpart)
+mytree <- rpart(Attrition ~ ., data = train_over_b, method = "class")
+pred <- predict(mytree,test_b, type = "class")
+cm=confusionMatrix(data = pred, reference = test_b$Attrition, positive = "Yes")
+Tree_reb = cm$byClass['Balanced Accuracy']
+
+#glm
+library(glmnet)
+model <- train(Attrition ~. ,tuneLength = 1, train_over_b, method = "glm")
+pred = predict(model, test_b )
+cm =confusionMatrix(pred, test_b$Attrition, positive="Yes")
+glm_reb = cm$byClass['Balanced Accuracy']
+
+#glmnet
+model <- train(Attrition ~. ,tuneLength = 1, train_over_b, method = "glmnet")
+pred = predict(model, test_b )
+cm =confusionMatrix(pred, test_b$Attrition, positive="Yes")
+glmnet_reb = cm$byClass['Balanced Accuracy']
+
+
+
+#Use Data Set train_over_c
+
+#Random Forest
+library(ranger)
+#run model on original dataset
+forest=ranger(Attrition~.,data=train_over_c)
+pred=predict(forest,data=test_c)$predictions
+cm=confusionMatrix(pred,test_c$Attrition,positive="Yes")
+Forest_rec = cm$byClass['Balanced Accuracy']
+
+#Decision Tree
+library(rpart)
+mytree <- rpart(Attrition ~ ., data = train_over_c, method = "class")
+pred <- predict(mytree,test_c, type = "class")
+cm=confusionMatrix(data = pred, reference = test_c$Attrition, positive = "Yes")
+Tree_rec = cm$byClass['Balanced Accuracy']
+
+
+#glm
+library(glmnet)
+model <- train(Attrition ~. ,tuneLength = 1, train_over_c, method = "glm")
+pred = predict(model, test_c )
+cm =confusionMatrix(pred, test_c$Attrition, positive="Yes")
+glm_rec = cm$byClass['Balanced Accuracy']
+
+
+#glmnet
+model <- train(Attrition ~. ,tuneLength = 1, train_over_c, method = "glmnet")
+pred = predict(model, test_c )
+cm =confusionMatrix(pred, test_c$Attrition, positive="Yes")
+glmnet_rec = cm$byClass['Balanced Accuracy']
+
+#tuned glmnet
+
+model <- train(Attrition ~. ,tuneLength = 1, train_over_a, tuneGrid = expand.grid(alpha = 0:1, lambda = seq(0.0001, 0.1, length = 20)), method = "glmnet")
+pred = predict(model, test_a )
+cm =confusionMatrix(pred, test_a$Attrition, positive="Yes")
+tuned_glmnet_rea = cm$byClass['Balanced Accuracy']
+
+
+model <- train(Attrition ~. ,tuneLength = 1, train_over_b, tuneGrid = expand.grid(alpha = 0:1, lambda = seq(0.0001, 0.1, length = 20)), method = "glmnet")
+pred = predict(model, test_b )
+cm =confusionMatrix(pred, test_b$Attrition, positive="Yes")
+tuned_glmnet_reb = cm$byClass['Balanced Accuracy']
+
+
+model <- train(Attrition ~. ,tuneLength = 1, train_over_c, tuneGrid = expand.grid(alpha = 0:1, lambda = seq(0.0001, 0.1, length = 20)), method = "glmnet")
+pred = predict(model, test_c )
+cm =confusionMatrix(pred, test_c$Attrition, positive="Yes")
+tuned_glmnet_rec = cm$byClass['Balanced Accuracy']
+
+
+
+
+```
+
+## Visualization
+### the result shows that majority of the employee didn't leave the company
+```{r}
+library(ggplot2)
+p1 = ggplot(employee) + geom_bar(mapping = aes(x= Attrition)) + ggtitle ("Distribution of the target variable")
+p1
+
+```
+
+### Only a small amount of employee have business travel
+```{r}
+p3 = ggplot(employee) + geom_bar(mapping = aes( x = BusinessTravel)) + ggtitle ("Distribution of Business Travel Frequency")
+p3
+```
+
+## most of the employee had their education in life sciences and mdecial field, which surprise me as IBM is known as a technology company I was expecting more employees had education in technical degree.
+```{r}
+p6 = ggplot(employee) + geom_bar(mapping = aes(x= EducationField)) + ggtitle ("Distribution of Education Field")
+p6
+```
+
+
+##people left the company tend to have lower income 
+```{r}
+p10 = ggplot(employee) + geom_density(aes(x = MonthlyIncome, color = Attrition))
+p10
+
+
+```
+
+## attrition is more likly happen to employee that's single
+```{r}
+p13 = ggplot(employee) + geom_bar(mapping = aes(x= Attrition, fill = MaritalStatus), position = 'dodge')
+p13
+
+```
+
+#Modeling 
+##Handle missing value method: delete, median, mean
+##Model: Random Forest, Decision Tree, glm, glmnet
+```{r}
+tbl =  matrix(c(Forest_a, Tree_a, glm_a, glmnet_a, NA, Forest_b, Tree_b, glm_b, glmnet_b, NA, Forest_c, Tree_c, glm_c, glmnet_c,NA, Forest_rea, Tree_rea, glm_rea, glmnet_rea, tuned_glmnet_rea, Forest_reb, Tree_reb, glm_reb, glmnet_reb, tuned_glmnet_reb, Forest_rec, Tree_rec, glm_rec, glmnet_rec, tuned_glmnet_rec),nrow = 5)
+rownames(tbl) <- c('Forest', 'Tree', 'glm', 'glmnet', 'tuned glmnet')
+colnames(tbl) <- c('a', 'b', 'c', 're-a', 're-b', 're-c')
+tbl.table = as.table(tbl)
+tbl.table
+```
+
+#Conclusion
+##Resampling method helped me to improve model accuracy. I got accuracy = 1 after resampled my data for random forest, I think this has to do with the fact that I resampled my training data but still tested them against the originl testing data therefore overfitted the model. Over all the most accuracte model is from glm using oversampled method and imputed missing value using median.
